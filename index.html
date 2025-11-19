@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Doom Clone</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui-layer">
+        <div id="crosshair">+</div>
+        <div id="hud">
+            <div class="stat">HEALTH <span id="health">100%</span></div>
+            <div class="stat">ARMOR <span id="armor">0%</span></div>
+            <div class="stat">AMMO <span id="ammo">50</span></div>
+        </div>
+        <div id="start-screen">
+            <h1>DOOM-JS</h1>
+            <p>Click to Start</p>
+        </div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>
+
