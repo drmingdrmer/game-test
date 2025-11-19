@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { Player } from './player.js';
 import { Level } from './level.js';
 import { Monster } from './monster.js';
+import { Projectile } from './projectile.js';
 
 // Global variables
 let camera, scene, renderer;
 let player, level;
 let monsters = [];
+let projectiles = [];
 let lastTime = performance.now();
 
 // Doom-style map 
@@ -56,35 +58,16 @@ function init() {
 
     // Handle shooting
     player.onShoot = () => {
-        // Check hits
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        
-        // Intersect monsters
-        // Actually simpler: check distance and angle to monsters
-        const playerPos = player.getObject().position;
         const playerDir = new THREE.Vector3();
         camera.getWorldDirection(playerDir);
         
-        for (const monster of monsters) {
-            if (monster.state === 'dead') continue;
-            
-            // Check if close enough and in front
-            const toMonster = new THREE.Vector3().subVectors(monster.position, playerPos);
-            const dist = toMonster.length();
-            toMonster.normalize();
-            
-            const angle = playerDir.angleTo(toMonster);
-            
-            if (dist < 50 && angle < 0.2) { // 0.2 rad is narrow cone
-                // Hit!
-                monster.takeDamage(20); // 2 shots to kill Imp, 5 for Demon
-                console.log("Hit monster!");
-                
-                // Add blood particle? (Skipped for brevity)
-                break; // Hit one at a time
-            }
-        }
+        // Spawn slightly in front of player
+        const spawnPos = player.getObject().position.clone();
+        spawnPos.y -= 0.2; // Slightly lower than eye level
+        spawnPos.add(playerDir.multiplyScalar(0.5));
+        
+        const p = new Projectile(scene, spawnPos, playerDir);
+        projectiles.push(p);
     };
 
     // Monsters setup
@@ -121,12 +104,28 @@ function animate() {
     requestAnimationFrame(animate);
 
     const time = performance.now();
-    const delta = (time - lastTime) / 1000;
+    // Cap delta to 0.1s (100ms) to prevent huge jumps after freeze/lag
+    let delta = (time - lastTime) / 1000;
+    if (delta > 0.1) delta = 0.1;
     
     player.update(delta);
     
     // Update Monsters
     monsters.forEach(m => m.update(delta, player));
+
+    // Update Projectiles
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        try {
+            p.update(delta, level, monsters);
+        } catch (e) {
+            console.error("Projectile error:", e);
+            p.alive = false;
+        }
+        if (!p.alive) {
+            projectiles.splice(i, 1);
+        }
+    }
 
     renderer.render(scene, camera);
     

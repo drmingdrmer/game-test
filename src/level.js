@@ -20,6 +20,9 @@ export class Level {
         this.monsterSpawns = []; // { type, x, z }
         this._parseMap(mapData);
 
+        this.levelGroup = new THREE.Group();
+        this.scene.add(this.levelGroup);
+
         this.generate();
     }
 
@@ -123,8 +126,6 @@ export class Level {
     }
 
     generate() {
-        const levelGroup = new THREE.Group();
-
         // Geometries reused
         const floorGeo = new THREE.PlaneGeometry(this.cellSize, this.cellSize);
         const wallGeo = new THREE.BoxGeometry(this.cellSize, 4, this.cellSize); // Standard wall block
@@ -144,7 +145,7 @@ export class Level {
                     // Just a big block for now
                     const wall = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize, 8, this.cellSize), wallMat);
                     wall.position.set(posX, 2, posZ);
-                    levelGroup.add(wall);
+                    this.levelGroup.add(wall);
                     continue;
                 }
 
@@ -152,13 +153,13 @@ export class Level {
                 const floor = new THREE.Mesh(floorGeo, floorMat);
                 floor.rotation.x = -Math.PI / 2;
                 floor.position.set(posX, cell.height, posZ);
-                levelGroup.add(floor);
+                this.levelGroup.add(floor);
 
                 // Ceiling (fixed height for now, or relative)
                 const ceil = new THREE.Mesh(floorGeo, ceilMat);
                 ceil.rotation.x = Math.PI / 2;
                 ceil.position.set(posX, cell.ceilHeight, posZ);
-                levelGroup.add(ceil);
+                this.levelGroup.add(ceil);
 
                 // Item
                 if (cell.hasItem) {
@@ -166,15 +167,13 @@ export class Level {
                     const sprite = new THREE.Sprite(spriteMat);
                     sprite.scale.set(2, 2, 1);
                     sprite.position.set(posX, cell.height + 1, posZ);
-                    levelGroup.add(sprite);
+                    this.levelGroup.add(sprite);
                 }
 
                 // Check neighbors to build "sides" (walls between height diffs)
-                this._buildSides(x, z, cell.height, levelGroup, stepMat);
+                this._buildSides(x, z, cell.height, this.levelGroup, stepMat);
             }
         }
-
-        this.scene.add(levelGroup);
     }
 
     _buildSides(x, z, currentH, group, mat) {
