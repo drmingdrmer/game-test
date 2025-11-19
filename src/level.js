@@ -6,9 +6,9 @@ export class Level {
         this.cellSize = 4; // Size of one grid block
 
         // Textures
-        this.floorTexture = this._createTexture('#554433', 'floor');
-        this.wallTexture = this._createTexture('#777777', 'wall');
-        this.ceilTexture = this._createTexture('#333333', 'ceil');
+        this.floorTexture = this._createTexture('#665544', 'floor'); // Slightly lighter floor
+        this.wallTexture = this._createTexture('#aaaaaa', 'wall');   // Much lighter wall
+        this.ceilTexture = this._createTexture('#444444', 'ceil');   // Lighter ceiling
         this.itemTexture = this._createTexture('#0000ff', 'item');
         this.stepTexture = this._createTexture('#665544', 'step'); // Texture for vertical steps
 

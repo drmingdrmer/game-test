@@ -49,7 +49,7 @@ function init() {
 
     // Level generation
     level = new Level(scene, mapData);
-    
+
     // Player setup
     player = new Player(camera, document.body, level);
     const startPos = level.getStartPosition();
@@ -60,12 +60,12 @@ function init() {
     player.onShoot = () => {
         const playerDir = new THREE.Vector3();
         camera.getWorldDirection(playerDir);
-        
+
         // Spawn slightly in front of player
         const spawnPos = player.getObject().position.clone();
         spawnPos.y -= 0.2; // Slightly lower than eye level
         spawnPos.add(playerDir.multiplyScalar(0.5));
-        
+
         const p = new Projectile(scene, spawnPos, playerDir);
         projectiles.push(p);
     };
@@ -77,7 +77,7 @@ function init() {
     });
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404040);
+    const ambientLight = new THREE.AmbientLight(0x808080); // Increased from 0x404040
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -86,7 +86,7 @@ function init() {
 
     // Event Listeners
     window.addEventListener('resize', onWindowResize);
-    
+
     const startScreen = document.getElementById('start-screen');
     startScreen.addEventListener('click', () => {
         player.lock();
@@ -107,9 +107,9 @@ function animate() {
     // Cap delta to 0.1s (100ms) to prevent huge jumps after freeze/lag
     let delta = (time - lastTime) / 1000;
     if (delta > 0.1) delta = 0.1;
-    
+
     player.update(delta);
-    
+
     // Update Monsters
     monsters.forEach(m => m.update(delta, player));
 
@@ -117,9 +117,10 @@ function animate() {
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
         try {
-            p.update(delta, level, monsters);
+            p.update(delta, level, monsters, camera);
         } catch (e) {
             console.error("Projectile error:", e);
+            p.destroy(); // Ensure mesh is removed
             p.alive = false;
         }
         if (!p.alive) {
@@ -128,7 +129,7 @@ function animate() {
     }
 
     renderer.render(scene, camera);
-    
+
     lastTime = time;
 }
 

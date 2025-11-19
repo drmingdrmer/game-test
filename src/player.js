@@ -14,8 +14,9 @@ export class Player {
         this.size = 0.6; // Collision radius
         this.height = 1.6; // Eye height
         this.gravity = 30.0;
-        this.jumpStrength = 0; // No jump in Doom, but could be added
+        this.jumpStrength = 12.0; 
         this.stepHeight = 1.1; // Max height player can step up
+        this.onGround = false;
         
         // State
         this.moveForward = false;
@@ -53,6 +54,7 @@ export class Player {
                 case 'KeyS': this.moveBackward = true; break;
                 case 'ArrowRight':
                 case 'KeyD': this.moveRight = true; break;
+                case 'Space': this.jump(); break;
             }
         };
 
@@ -93,6 +95,13 @@ export class Player {
         mesh.add(this.muzzleLight);
         
         return mesh;
+    }
+
+    jump() {
+        if (this.onGround) {
+            this.velocity.y = this.jumpStrength;
+            this.onGround = false;
+        }
     }
 
     shoot() {
@@ -174,10 +183,13 @@ export class Player {
         if (controlObj.position.y < newFloorY + this.height) {
             controlObj.position.y = newFloorY + this.height;
             this.velocity.y = 0;
+            this.onGround = true;
+        } else {
+            this.onGround = false;
         }
 
         // Weapon bobbing & recoil return
-        if (this.moveForward || this.moveBackward || this.moveLeft || this.moveRight) {
+        if (this.onGround && (this.moveForward || this.moveBackward || this.moveLeft || this.moveRight)) {
             this.bobTimer += delta * 15;
             this.weapon.position.y = -0.5 + Math.sin(this.bobTimer) * 0.02;
             this.weapon.position.x = Math.cos(this.bobTimer * 0.5) * 0.02;

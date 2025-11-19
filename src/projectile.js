@@ -23,7 +23,7 @@ export class Projectile {
         this.raycaster = new THREE.Raycaster();
     }
 
-    update(delta, level, monsters) {
+    update(delta, level, monsters, camera) {
         if (!this.alive) return;
 
         this.lastPosition.copy(this.position);
@@ -37,6 +37,7 @@ export class Projectile {
         const dist = displacement.length();
         if (dist > 0) {
             this.raycaster.set(this.lastPosition, this.direction);
+            this.raycaster.camera = camera; // Required for Sprite intersection
             this.raycaster.far = dist;
 
             // 1. Check Walls/Level
