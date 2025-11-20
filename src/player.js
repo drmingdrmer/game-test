@@ -5,27 +5,31 @@ export class Player {
     constructor(camera, domElement, level) {
         this.camera = camera;
         this.level = level;
-        
+
         // Controls
         this.controls = new PointerLockControls(camera, domElement);
-        
+
         // Physics constants
-        this.speed = 10.0;
-        this.size = 0.6; // Collision radius
+        this.speed = 6.0; // Reduced from 10.0
+        this.size = 0.5; // Collision radius (keep at least 0.4 to avoid clipping)
         this.height = 1.6; // Eye height
         this.gravity = 30.0;
-        this.jumpStrength = 12.0; 
+        this.jumpStrength = 15.0; // Increased jump for high ledges
         this.stepHeight = 1.1; // Max height player can step up
         this.onGround = false;
-        
+
         // State
         this.moveForward = false;
         this.moveBackward = false;
         this.moveLeft = false;
         this.moveRight = false;
+        this.isFiring = false; // Auto-fire state
+        this.fireRate = 0.15; // Seconds between shots
+        this.fireTimer = 0;
+
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        
+
         // Weapon Bobbing
         this.bobTimer = 0;
         this.weapon = this.createWeapon();
@@ -73,10 +77,14 @@ export class Player {
 
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
-        
-        // Shoot listener
+
+        // Shoot listener (Auto-fire)
         document.addEventListener('mousedown', (e) => {
-            if (this.controls.isLocked) this.shoot();
+            if (this.controls.isLocked) this.isFiring = true;
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            this.isFiring = false;
         });
     }
 
@@ -85,15 +93,15 @@ export class Player {
         const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.6);
         const material = new THREE.MeshStandardMaterial({ color: 0x333333 });
         const mesh = new THREE.Mesh(geometry, material);
-        
+
         mesh.position.set(0, -0.5, -0.8); // Bottom center
         mesh.castShadow = true;
-        
+
         // Muzzle flash light (hidden by default)
         this.muzzleLight = new THREE.PointLight(0xffaa00, 0, 5);
         this.muzzleLight.position.set(0, 0, -1);
         mesh.add(this.muzzleLight);
-        
+
         return mesh;
     }
 
@@ -107,18 +115,29 @@ export class Player {
     shoot() {
         // Simple shooting effect
         this.muzzleLight.intensity = 5;
-        
+
         // Recoil
         this.weapon.position.z += 0.2;
-        
+
         setTimeout(() => {
             this.muzzleLight.intensity = 0;
         }, 50);
-        
+
         if (this.onShoot) this.onShoot();
     }
 
     update(delta) {
+        // Handle Firing
+        if (this.isFiring) {
+            this.fireTimer -= delta;
+            if (this.fireTimer <= 0) {
+                this.shoot();
+                this.fireTimer = this.fireRate;
+            }
+        } else {
+            this.fireTimer = 0; // Reset so next click is instant
+        }
+
         if (!this.controls.isLocked) return;
 
         // Apply friction/damping
@@ -127,7 +146,7 @@ export class Player {
         // Gravity
         this.velocity.y -= this.gravity * delta;
 
-        // Determine move direction - FIXED inverted controls
+        // Determine move direction
         this.direction.z = Number(this.moveBackward) - Number(this.moveForward);
         this.direction.x = Number(this.moveLeft) - Number(this.moveRight);
         this.direction.normalize(); // Consistent speed in diagonals
@@ -144,7 +163,7 @@ export class Player {
         const controlObj = this.controls.getObject();
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(controlObj.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(controlObj.quaternion);
-        
+
         // Flat movement (Doom didn't fly)
         forward.y = 0;
         forward.normalize();
@@ -157,19 +176,17 @@ export class Player {
 
         // Collision Detection (Grid based)
         const currentPos = controlObj.position.clone();
-        
-        // Current Floor Height (to check if we are falling)
-        const currentFloorY = this.level.getFloorHeight(currentPos.x, currentPos.z);
-        
+        const feetY = currentPos.y - this.height; // Calculate actual feet position
+
         // Check X movement
-        if (this._canMoveTo(currentPos.x + deltaX, currentPos.z, currentFloorY)) {
+        if (this._canMoveTo(currentPos.x + deltaX, currentPos.z, feetY)) {
             controlObj.position.x += deltaX;
         } else {
-             this.velocity.x = 0;
+            this.velocity.x = 0;
         }
 
         // Check Z movement
-        if (this._canMoveTo(controlObj.position.x, currentPos.z + deltaZ, currentFloorY)) {
+        if (this._canMoveTo(controlObj.position.x, currentPos.z + deltaZ, feetY)) {
             controlObj.position.z += deltaZ;
         } else {
             this.velocity.z = 0;
@@ -198,19 +215,26 @@ export class Player {
             this.weapon.position.y = THREE.MathUtils.lerp(this.weapon.position.y, -0.5, delta * 10);
             this.weapon.position.x = THREE.MathUtils.lerp(this.weapon.position.x, 0, delta * 10);
         }
-        
+
         // Return recoil
         this.weapon.position.z = THREE.MathUtils.lerp(this.weapon.position.z, -0.8, delta * 10);
     }
 
-    _canMoveTo(x, z, currentY) {
+    _canMoveTo(x, z, feetY) {
+        // Check center
         if (this.level.isWall(x, z)) return false;
-        
+
+        // Check radius (simple 4-point check)
+        const r = this.size;
+        if (this.level.isWall(x + r, z)) return false;
+        if (this.level.isWall(x - r, z)) return false;
+        if (this.level.isWall(x, z + r)) return false;
+        if (this.level.isWall(x, z - r)) return false;
+
         const targetY = this.level.getFloorHeight(x, z);
-        // If target floor is too high compared to current floor, block
-        // Using currentY (passed in) which is the floor height we are standing on
-        if (targetY > currentY + this.stepHeight) return false;
-        
+        // If target floor is too high compared to CURRENT FEET position, block
+        if (targetY > feetY + this.stepHeight) return false;
+
         return true;
     }
 }
